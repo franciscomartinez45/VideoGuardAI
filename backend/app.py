@@ -6,10 +6,12 @@ from flask import Flask, request, jsonify # pyright: ignore[reportMissingImports
 import yt_dlp # pyright: ignore[reportMissingModuleSource]
 import google.generativeai as genai  # pyright: ignore[reportMissingImports]
 from dotenv import load_dotenv # pyright: ignore[reportMissingImports]
-
+from flask_cors import CORS # pyright: ignore[reportMissingModuleSource]
 
 load_dotenv()
 app = Flask(__name__)
+CORS(app)
+
 
 try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
@@ -132,5 +134,3 @@ def analyze_video():
             print(f"Removed temp file: {downloaded_filename}")
 
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=True)
