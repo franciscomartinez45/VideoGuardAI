@@ -36,9 +36,8 @@ export default function Analyze() {
   const analyzeVideo = async () => {
     setLoading(true);
 
-   
-    const endpoint = `http://${process.env.EXPO_PUBLIC_SERVER}:${process.env.EXPO_PUBLIC_PORT}/analyze`;
- 
+    const endpoint = `${process.env.EXPO_PUBLIC_SERVER}:${process.env.EXPO_PUBLIC_PORT}/analyze`;
+
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -54,48 +53,15 @@ export default function Analyze() {
         throw new Error(`Server error: ${response.status}`);
       }
 
- 
-      const serverResult = await response.json();
-      const sortedResults = serverResult.sort((a: { score: number; }, b: { score: number; }) => b.score - a.score);
-      const topResult = sortedResults[0];
 
-      const isAI = topResult.label === "deepfake";
-      const confidence = Math.round(topResult.score * 100);
-
-      const mockDetails = {
-        visualArtifacts: isAI
-          ? Math.floor(Math.random() * 40) + 60
-          : Math.floor(Math.random() * 30),
-        audioAnomalies: isAI
-          ? Math.floor(Math.random() * 30) + 50
-          : Math.floor(Math.random() * 20),
-        motionPatterns: isAI
-          ? Math.floor(Math.random() * 50) + 40
-          : Math.floor(Math.random() * 25),
-        faceAnalysis: isAI
-          ? Math.floor(Math.random() * 60) + 40
-          : Math.floor(Math.random() * 15),
-      };
-
-      const mockExplanation = isAI
-        ? `The model detected a ${confidence}% probability of AI generation. This assessment is based on anomalous patterns consistent with deepfake algorithms.`
-        : `The model is ${confidence}% confident this video is authentic. It lacks common AI-generated artifacts.`;
-
-      const finalResult: AnalysisResult = {
-        url: url as string,
-        isAI: isAI,
-        confidence: confidence,
-        timestamp: new Date().toISOString(),
-        details: mockDetails, // Using our generated details
-        explanation: mockExplanation, // Using our generated explanation
-      };
-
+      const finalResult: AnalysisResult = await response.json();
+      
       setResult(finalResult);
       //await saveToHistory(finalResult);
+
     } catch (error) {
       console.error("Error analyzing video:", error);
-
-      setResult(null); 
+      setResult(null); // Show an error screen
     } finally {
       setLoading(false);
     }
