@@ -79,7 +79,6 @@ export default function History() {
                 onPress={() =>
                   router.push({
                     pathname: "/analyze",
-
                     params: { cachedResult: JSON.stringify(item) },
                   })
                 }

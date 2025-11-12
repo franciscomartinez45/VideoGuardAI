@@ -313,9 +313,4 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // This makes the button look "disabled"
-  analyzeButtonDisabled: {
-    backgroundColor: "#9ca3af", // A gray color
-    opacity: 0.7,
-  },
 });
