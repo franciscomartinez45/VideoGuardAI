@@ -1,14 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  useLocalSearchParams,
+  useRouter,
+  useNavigation,
+  Stack,
+} from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
   View,
 } from "react-native";
 import { styles } from "./styles";
+
 interface AnalysisResult {
   url: string;
   isAI: boolean;
@@ -24,20 +31,34 @@ interface AnalysisResult {
 }
 
 export default function Analyze() {
-  const { url } = useLocalSearchParams();
+  const { url, cachedResult } = useLocalSearchParams<{
+    url?: string;
+    cachedResult?: string;
+  }>();
+  const [error, setErrorMessage] = useState("");
+  
   const router = useRouter();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
   useEffect(() => {
-    analyzeVideo();
+    if (cachedResult) {
+      console.log("Loading from cached result...");
+      setResult(JSON.parse(cachedResult));
+      setLoading(false);
+    } else if (url) {
+      analyzeVideo();
+    } else {
+      setLoading(false);
+      setResult(null);
+    }
   }, [url]);
-
   const analyzeVideo = async () => {
     setLoading(true);
 
     const endpoint = `${process.env.EXPO_PUBLIC_SERVER}:${process.env.EXPO_PUBLIC_PORT}/analyze`;
-
+    setErrorMessage("");
     try {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -50,26 +71,56 @@ export default function Analyze() {
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        let errorMsg = "An unknown server error occurred.";
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          errorMsg = `Server error: ${response.status}`;
+         
+        }
+        throw new Error(errorMsg); 
       }
-
-
+    
       const finalResult: AnalysisResult = await response.json();
-      
-      setResult(finalResult);
-      //await saveToHistory(finalResult);
 
-    } catch (error) {
-      console.error("Error analyzing video:", error);
-      setResult(null); // Show an error screen
+      setResult(finalResult);
+      await saveToHistory(finalResult);
+    } catch (error: any) {
+    
+      setErrorMessage(error.message)
+      setResult(null); 
     } finally {
       setLoading(false);
+    }
+  };
+  const saveToHistory = async (analysisResult: AnalysisResult) => {
+    try {
+      const existingHistory = await AsyncStorage.getItem("analysis_history");
+      const history = existingHistory ? JSON.parse(existingHistory) : [];
+      history.unshift(analysisResult);
+      await AsyncStorage.setItem(
+        "analysis_history",
+        JSON.stringify(history.slice(0, 50))
+      );
+    } catch (error) {
+      console.error("Error saving to history:", error);
     }
   };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
+        <Stack.Screen
+          options={{
+            title: "Analyzing...",
+            headerBackVisible: false,
+            headerBackButtonMenuEnabled: false,
+            gestureEnabled: false,
+          }}
+        />
         <ActivityIndicator size="large" color="#6366f1" />
         <Text style={styles.loadingText}>Analyzing video...</Text>
         <Text style={styles.loadingSubtext}>
@@ -82,13 +133,27 @@ export default function Analyze() {
   if (!result) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>Error analyzing video</Text>
+        <Stack.Screen
+          options={{
+            title: "Error",
+            headerBackVisible: true,
+            gestureEnabled: true,
+          }}
+        />
+        <Text style={styles.errorText}>{error}</Text>
       </View>
     );
   }
 
   return (
     <ScrollView style={styles.container}>
+      <Stack.Screen
+        options={{
+          title: "Analysis Result",
+          headerBackVisible: true,
+          headerBackButtonMenuEnabled: true,
+        }}
+      />
       <View style={styles.content}>
         <View
           style={[

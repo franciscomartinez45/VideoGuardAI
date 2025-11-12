@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+
 import { styles } from "./styles";
 interface HistoryItem {
   url: string;
@@ -72,7 +73,17 @@ export default function History() {
         <>
           <ScrollView style={styles.list}>
             {history.map((item, index) => (
-              <View key={index} style={styles.historyItem}>
+              <TouchableOpacity
+                key={index}
+                style={styles.historyItem}
+                onPress={() =>
+                  router.push({
+                    pathname: "/analyze",
+
+                    params: { cachedResult: JSON.stringify(item) },
+                  })
+                }
+              >
                 <View style={styles.historyHeader}>
                   <Text
                     style={[
@@ -88,7 +99,7 @@ export default function History() {
                 <Text style={styles.timestamp}>
                   {formatDate(item.timestamp)}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
           <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>

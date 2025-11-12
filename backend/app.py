@@ -2,10 +2,10 @@ import os
 import json
 import time
 import re 
-from flask import Flask, request, jsonify
-import yt_dlp
-import google.generativeai as genai 
-from dotenv import load_dotenv
+from flask import Flask, request, jsonify # pyright: ignore[reportMissingImports]
+import yt_dlp # pyright: ignore[reportMissingModuleSource]
+import google.generativeai as genai  # pyright: ignore[reportMissingImports]
+from dotenv import load_dotenv # pyright: ignore[reportMissingImports]
 
 
 load_dotenv()
@@ -56,7 +56,7 @@ def extract_json_from_text(text):
         return match.group(0)
     return None
 
-# --- 3. THE API ENDPOINT ---
+
 @app.route('/analyze', methods=['POST'])
 def analyze_video():
     data = request.json

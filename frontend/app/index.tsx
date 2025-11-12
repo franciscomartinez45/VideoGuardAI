@@ -11,9 +11,25 @@ import {
   View,
 } from "react-native";
 import { styles } from "./styles";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+interface AnalysisResult {
+  url: string;
+  isAI: boolean;
+  confidence: number;
+  timestamp: string;
+  details: {
+    visualArtifacts: number;
+    audioAnomalies: number;
+    motionPatterns: number;
+    faceAnalysis: number;
+  };
+  explanation: string;
+}
 
 export default function Home() {
   const [url, setUrl] = useState("");
+  const [loading, setIsLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -42,8 +58,29 @@ export default function Home() {
     const instagramRegex = /instagram\.com/i;
     return tiktokRegex.test(urlString) || instagramRegex.test(urlString);
   };
+  const checkHistoryForUrl = async (
+    url: string
+  ): Promise<AnalysisResult | null> => {
+    try {
+      const existingHistory = await AsyncStorage.getItem("analysis_history");
 
-  const handleAnalyze = () => {
+      if (existingHistory === null) {
+        return null;
+      }
+
+      const history: AnalysisResult[] = JSON.parse(existingHistory);
+
+      const existingResult = history.find((item) => item.url === url);
+
+      return existingResult || null;
+    } catch (error) {
+      console.error("Error reading history:", error);
+      
+      return null;
+    }
+  };
+
+  const handleAnalyze = async () => {
     if (!url.trim()) {
       Alert.alert("Error", "Please enter a URL");
       return;
@@ -53,11 +90,25 @@ export default function Home() {
       Alert.alert("Error", "Please enter a valid TikTok or Instagram URL");
       return;
     }
+    const existingResult = await checkHistoryForUrl(url);
 
-    router.push({
-      pathname: "/analyze",
-      params: { url: url.trim() },
-    });
+    if (existingResult) {
+      console.log("Found in cache, navigating...");
+      router.push({
+        pathname: "/analyze",
+        params: { cachedResult: JSON.stringify(existingResult) },
+      });
+    } else {
+      console.log("Not in cache, fetching...");
+      router.push({
+        pathname: "/analyze",
+        params: { url: url },
+      });
+    }
+    setTimeout(() => {
+      setIsLoading(false);
+      setUrl("");
+    }, 1000);
   };
 
   const pasteFromClipboard = async () => {

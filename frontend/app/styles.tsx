@@ -59,6 +59,8 @@ export const styles = StyleSheet.create({
     padding: 18,
     alignItems: "center",
     marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   analyzeButtonText: {
     color: "#fff",
@@ -309,5 +311,11 @@ export const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+
+  // This makes the button look "disabled"
+  analyzeButtonDisabled: {
+    backgroundColor: "#9ca3af", // A gray color
+    opacity: 0.7,
   },
 });
