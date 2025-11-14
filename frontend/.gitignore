@@ -11,7 +11,6 @@ env.d.ts
 hooks/
 
 .env
-end.d.ts
 
 # Expo
 .expo/

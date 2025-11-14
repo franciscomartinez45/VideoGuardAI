@@ -57,7 +57,7 @@ export default function Analyze() {
   const analyzeVideo = async () => {
     setLoading(true);
 
-    const endpoint = `${process.env.EXPO_PUBLIC_SERVER}:${process.env.EXPO_PUBLIC_PORT}/analyze`;
+    const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
     setErrorMessage("");
     try {
       const response = await fetch(endpoint, {
@@ -89,13 +89,13 @@ export default function Analyze() {
       setResult(finalResult);
       await saveToHistory(finalResult);
     } catch (error: any) {
-    
       setErrorMessage(error.message)
       setResult(null); 
     } finally {
       setLoading(false);
-    }
-  };
+    }}
+  
+ 
   const saveToHistory = async (analysisResult: AnalysisResult) => {
     try {
       const existingHistory = await AsyncStorage.getItem("analysis_history");
