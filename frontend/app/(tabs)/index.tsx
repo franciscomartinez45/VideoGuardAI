@@ -1,5 +1,4 @@
 import * as Clipboard from "expo-clipboard";
-import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -11,19 +10,29 @@ import {
   View,
 } from "react-native";
 import { styles } from "../styles";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import {
+  collection,
+  doc,
+  getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
+} from "firebase/firestore";
+import { getAuth } from "firebase/auth";
+
+interface HistoryItem extends AnalysisResult {
+  id: string;
+}
 interface AnalysisResult {
   url: string;
   isAI: boolean;
   confidence: number;
   timestamp: string;
-  details: {
-    visualArtifacts: number;
-    audioAnomalies: number;
-    motionPatterns: number;
-    faceAnalysis: number;
-  };
+  visualArtifacts: number;
+  audioAnomalies: number;
+  motionPatterns: number;
+  faceAnalysis: number;
   explanation: string;
 }
 
@@ -31,75 +40,79 @@ export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setIsLoading] = useState(true);
   const router = useRouter();
+  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const db = getFirestore();
+  const { currentUser } = getAuth();
 
   useEffect(() => {
-    Linking.getInitialURL().then((initialUrl) => {
-      if (initialUrl) {
-        handleIncomingUrl(initialUrl);
-      }
-    });
-
-    const subscription = Linking.addEventListener("url", ({ url }) => {
-      handleIncomingUrl(url);
-    });
-
-    return () => subscription.remove();
-  }, []);
-
-  const handleIncomingUrl = (incomingUrl: string) => {
-    const params = Linking.parse(incomingUrl);
-    if (params.queryParams?.url) {
-      setUrl(params.queryParams.url as string);
+    if (!currentUser) {
+      setHistory([]);
+      setIsLoading(false);
+      return;
     }
-  };
+    setIsLoading(true);
+    try {
+      const userRef = doc(db, "user", currentUser.uid);
+      const searchCollectionRef = collection(userRef, "search");
+      const historyQuery = query(
+        searchCollectionRef,
+        orderBy("timestamp", "desc")
+      );
+      const unsubscribe = onSnapshot(
+        historyQuery,
+        (snapshot) => {
+          const historyData: HistoryItem[] = [];
+          snapshot.forEach((doc) => {
+            historyData.push({
+              ...(doc.data() as HistoryItem),
+              id: doc.id,
+            });
+          });
+          setHistory(historyData);
+          setIsLoading(false);
+        },
+        (error) => {
+          console.error("Error setting up history listener:", error);
+          setIsLoading(false);
+        }
+      );
+      return () => {
+        unsubscribe();
+        console.log("Firestore listener unsubscribed.");
+      };
+    } catch (e) {
+      console.error("Error setting up history fetch:", e);
+      setIsLoading(false);
+    }
+  }, [currentUser]);
 
   const isValidUrl = (urlString: string) => {
     const tiktokRegex = /tiktok\.com/i;
     const instagramRegex = /instagram\.com/i;
     return tiktokRegex.test(urlString) || instagramRegex.test(urlString);
   };
-  const checkHistoryForUrl = async (
-    url: string
-  ): Promise<AnalysisResult | null> => {
-    try {
-      const existingHistory = await AsyncStorage.getItem("analysis_history");
-
-      if (existingHistory === null) {
-        return null;
-      }
-
-      const history: AnalysisResult[] = JSON.parse(existingHistory);
-
-      const existingResult = history.find((item) => item.url === url);
-
-      return existingResult || null;
-    } catch (error) {
-      console.error("Error reading history:", error);
-
-      return null;
-    }
+  const inHistory = (url: string) => {
+    const matchingItem = history.find((item) => item.url === url);
+    return matchingItem?.id;
   };
-
   const handleAnalyze = async () => {
     if (!url.trim()) {
       Alert.alert("Error", "Please enter a URL");
       return;
     }
-
     if (!isValidUrl(url)) {
       Alert.alert("Error", "Please enter a valid TikTok or Instagram URL");
       return;
     }
-    const existingResult = await checkHistoryForUrl(url);
-
-    if (existingResult) {
-      console.log("Found in cache, navigating...");
+    const data = inHistory(url);
+    if (data) {
+      console.log("Found in history...");
       router.push({
         pathname: "/analyze",
-        params: { cachedResult: JSON.stringify(existingResult) },
+        params: { cachedResult: data },
       });
     } else {
-      console.log("Not in cache, fetching...");
+      console.log("Fetching...");
       router.push({
         pathname: "/analyze",
         params: { url: url },
@@ -116,6 +129,20 @@ export default function Home() {
     if (text) {
       setUrl(text);
     }
+  };
+  const formatDate = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  };
+  const clearHistory = () => {
+    Alert.alert(
+      "Clear History",
+      "Are you sure you want to clear all analysis history?"
+    );
+  };
+
+  const truncateUrl = (url: string) => {
+    return url.length > 40 ? url.substring(0, 40) + "..." : url;
   };
 
   return (
@@ -142,9 +169,10 @@ export default function Home() {
             />
             <TouchableOpacity
               style={styles.pasteButton}
+              //onPress={pasteFromClipboard}
               onPress={pasteFromClipboard}
             >
-              <Text style={styles.pasteButtonText}>Paste</Text>
+              <Text style={styles.pasteButtonText}>Clear Cache</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -181,6 +209,55 @@ export default function Home() {
             </View>
           </View>
         </View>
+      </View>
+      <View style={styles.container}>
+        {history.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyText}>No analysis history yet</Text>
+            <TouchableOpacity
+              style={styles.startButton}
+              onPress={() => router.back()}
+            >
+              <Text style={styles.startButtonText}>Start Analyzing</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            <ScrollView style={styles.list}>
+              {history.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.historyItem}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/analyze",
+                      params: { cachedResult: item.id },
+                    })
+                  }
+                >
+                  <View style={styles.historyHeader}>
+                    <Text
+                      style={[
+                        styles.badge,
+                        item.isAI ? styles.aiBadge : styles.authenticBadge,
+                      ]}
+                    >
+                      {item.isAI ? "AI" : "Authentic"}
+                    </Text>
+                    <Text style={styles.confidence}>{item.confidence}%</Text>
+                  </View>
+                  <Text style={styles.url}>{truncateUrl(item.url)}</Text>
+                  <Text style={styles.timestamp}>
+                    {formatDate(item.timestamp)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
+              <Text style={styles.clearButtonText}>Clear History</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </ScrollView>
   );

@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   useLocalSearchParams,
   useRouter,
@@ -16,10 +15,17 @@ import {
 } from "react-native";
 import { styles } from "../styles";
 import { getAuth } from "firebase/auth";
-import { addDoc, collection, doc } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getFirestore,
+} from "firebase/firestore";
 import { db } from "@/firebaseConfig";
 
-interface AnalysisResult {
+export interface AnalysisResult {
+  id: string;
   url: string;
   isAI: boolean;
   confidence: number;
@@ -42,11 +48,29 @@ export default function Analyze() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const db = getFirestore();
+
+  const fetchSavedInfo = async (id: string) => {
+    if (currentUser?.uid) {
+      try {
+        const searchItemRef = doc(db, "user", currentUser?.uid, "search", id);
+        const docSnap = await getDoc(searchItemRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as AnalysisResult;
+          setResult(data);
+          console.log("Analysis extracted from DB...");
+        }
+      } catch (error) {
+        console.error("Error fetching search item:", error);
+        setResult(null);
+      }
+    }
+  };
 
   useEffect(() => {
     if (cachedResult) {
       console.log("Loading from cached result...");
-      setResult(JSON.parse(cachedResult));
+      fetchSavedInfo(cachedResult);
       setLoading(false);
     } else if (url) {
       analyzeVideo();
@@ -63,7 +87,8 @@ export default function Analyze() {
       setLoading(false);
       setResult(null);
     }
-  }, [url, navigation, loading]);
+  }, [url, navigation, cachedResult]);
+
   const analyzeVideo = async () => {
     setLoading(true);
     const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
@@ -94,7 +119,7 @@ export default function Analyze() {
 
       const finalResult: AnalysisResult = await response.json();
       setResult(finalResult);
-      await saveToHistory(finalResult);
+      await saveToDB(finalResult);
     } catch (error: any) {
       setErrorMessage(error.message);
       setResult(null);
@@ -103,27 +128,15 @@ export default function Analyze() {
     }
   };
 
-  const saveToHistory = async (analysisResult: AnalysisResult) => {
-    // try {
-    //   const existingHistory = await AsyncStorage.getItem("analysis_history");
-    //   const history = existingHistory ? JSON.parse(existingHistory) : [];
-    //   history.unshift(analysisResult);
-    //   await AsyncStorage.setItem(
-    //     "analysis_history",
-    //     JSON.stringify(history.slice(0, 50))
-    //   );
-    // } catch (error) {
-    //   console.error("Error saving to history:", error);
-    // }
+  const saveToDB = async (analysisResult: AnalysisResult) => {
     if (currentUser) {
       try {
         const userRef = doc(db, "user", currentUser.uid);
         const searchRef = collection(userRef, "search");
-        await addDoc(searchRef, analysisResult);
+        const docRef = await addDoc(searchRef, analysisResult);
         Alert.alert("Success!", "Analysis complete!", [
           { text: "OK", style: "cancel" },
         ]);
-        router.push("/(tabs)");
       } catch (error) {
         console.error("Error saving to history:", error);
       }
