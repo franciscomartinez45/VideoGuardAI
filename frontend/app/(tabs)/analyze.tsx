@@ -14,19 +14,20 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { styles } from "./styles";
+import { styles } from "../styles";
+import { getAuth } from "firebase/auth";
+import { addDoc, collection, doc } from "firebase/firestore";
+import { db } from "@/firebaseConfig";
 
 interface AnalysisResult {
   url: string;
   isAI: boolean;
   confidence: number;
   timestamp: string;
-  details: {
-    visualArtifacts: number;
-    audioAnomalies: number;
-    motionPatterns: number;
-    faceAnalysis: number;
-  };
+  visualArtifacts: number;
+  audioAnomalies: number;
+  motionPatterns: number;
+  faceAnalysis: number;
   explanation: string;
 }
 
@@ -36,7 +37,7 @@ export default function Analyze() {
     cachedResult?: string;
   }>();
   const [error, setErrorMessage] = useState("");
-  
+  const { currentUser } = getAuth();
   const router = useRouter();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
@@ -49,14 +50,22 @@ export default function Analyze() {
       setLoading(false);
     } else if (url) {
       analyzeVideo();
+      const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+        if (loading) {
+          e.preventDefault();
+          alert(
+            "Please wait for the data to finish loading before going back."
+          );
+        }
+        return unsubscribe;
+      });
     } else {
       setLoading(false);
       setResult(null);
     }
-  }, [url]);
+  }, [url, navigation, loading]);
   const analyzeVideo = async () => {
     setLoading(true);
-
     const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
     setErrorMessage("");
     try {
@@ -79,34 +88,45 @@ export default function Analyze() {
           }
         } catch (e) {
           errorMsg = `Server error: ${response.status}`;
-         
         }
-        throw new Error(errorMsg); 
+        throw new Error(errorMsg);
       }
-    
-      const finalResult: AnalysisResult = await response.json();
 
+      const finalResult: AnalysisResult = await response.json();
       setResult(finalResult);
       await saveToHistory(finalResult);
     } catch (error: any) {
-      setErrorMessage(error.message)
-      setResult(null); 
+      setErrorMessage(error.message);
+      setResult(null);
     } finally {
       setLoading(false);
-    }}
-  
- 
+    }
+  };
+
   const saveToHistory = async (analysisResult: AnalysisResult) => {
-    try {
-      const existingHistory = await AsyncStorage.getItem("analysis_history");
-      const history = existingHistory ? JSON.parse(existingHistory) : [];
-      history.unshift(analysisResult);
-      await AsyncStorage.setItem(
-        "analysis_history",
-        JSON.stringify(history.slice(0, 50))
-      );
-    } catch (error) {
-      console.error("Error saving to history:", error);
+    // try {
+    //   const existingHistory = await AsyncStorage.getItem("analysis_history");
+    //   const history = existingHistory ? JSON.parse(existingHistory) : [];
+    //   history.unshift(analysisResult);
+    //   await AsyncStorage.setItem(
+    //     "analysis_history",
+    //     JSON.stringify(history.slice(0, 50))
+    //   );
+    // } catch (error) {
+    //   console.error("Error saving to history:", error);
+    // }
+    if (currentUser) {
+      try {
+        const userRef = doc(db, "user", currentUser.uid);
+        const searchRef = collection(userRef, "search");
+        await addDoc(searchRef, analysisResult);
+        Alert.alert("Success!", "Analysis complete!", [
+          { text: "OK", style: "cancel" },
+        ]);
+        router.push("/(tabs)");
+      } catch (error) {
+        console.error("Error saving to history:", error);
+      }
     }
   };
 
@@ -178,13 +198,11 @@ export default function Analyze() {
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${result.details.visualArtifacts}%` },
+                  { width: `${result.visualArtifacts}%` },
                 ]}
               />
             </View>
-            <Text style={styles.metricValue}>
-              {result.details.visualArtifacts}%
-            </Text>
+            <Text style={styles.metricValue}>{result.visualArtifacts}%</Text>
           </View>
 
           <View style={styles.metricRow}>
@@ -193,13 +211,11 @@ export default function Analyze() {
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${result.details.audioAnomalies}%` },
+                  { width: `${result.audioAnomalies}%` },
                 ]}
               />
             </View>
-            <Text style={styles.metricValue}>
-              {result.details.audioAnomalies}%
-            </Text>
+            <Text style={styles.metricValue}>{result.audioAnomalies}%</Text>
           </View>
 
           <View style={styles.metricRow}>
@@ -208,13 +224,11 @@ export default function Analyze() {
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${result.details.motionPatterns}%` },
+                  { width: `${result.motionPatterns}%` },
                 ]}
               />
             </View>
-            <Text style={styles.metricValue}>
-              {result.details.motionPatterns}%
-            </Text>
+            <Text style={styles.metricValue}>{result.motionPatterns}%</Text>
           </View>
 
           <View style={styles.metricRow}>
@@ -223,13 +237,11 @@ export default function Analyze() {
               <View
                 style={[
                   styles.progressFill,
-                  { width: `${result.details.faceAnalysis}%` },
+                  { width: `${result.faceAnalysis}%` },
                 ]}
               />
             </View>
-            <Text style={styles.metricValue}>
-              {result.details.faceAnalysis}%
-            </Text>
+            <Text style={styles.metricValue}>{result.faceAnalysis}%</Text>
           </View>
         </View>
 

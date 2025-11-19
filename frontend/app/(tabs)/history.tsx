@@ -3,7 +3,10 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
-import { styles } from "./styles";
+import { styles } from "../styles";
+import { getAuth } from "firebase/auth";
+import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { db } from "@/firebaseConfig";
 interface HistoryItem {
   url: string;
   isAI: boolean;
@@ -13,13 +16,36 @@ interface HistoryItem {
 
 export default function History() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [userHasSearches, setUserSearches] = useState<boolean>(false);
   const router = useRouter();
-
+  const { currentUser } = getAuth();
+  const [userSearchData, setUserSearchData] = useState<HistoryItem | null>(
+    null
+  );
   useEffect(() => {
     loadHistory();
   }, []);
 
   const loadHistory = async () => {
+    if (currentUser) {
+      const searchCollectionref = collection(
+        db,
+        "user",
+        currentUser.uid,
+        "search"
+      );
+      const unsubscribe = onSnapshot(searchCollectionref, (snapshot) => {
+        if (!snapshot.empty) {
+          setUserSearches(true);
+        } else {
+          setUserSearches(false);
+        }
+      });
+      return () => {
+        unsubscribe();
+      };
+    }
+
     try {
       const historyData = await AsyncStorage.getItem("analysis_history");
       if (historyData) {
@@ -31,21 +57,21 @@ export default function History() {
   };
 
   const clearHistory = () => {
-    Alert.alert(
-      "Clear History",
-      "Are you sure you want to clear all analysis history?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Clear",
-          style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.removeItem("analysis_history");
-            setHistory([]);
-          },
-        },
-      ]
-    );
+    // Alert.alert(
+    //   "Clear History",
+    //   "Are you sure you want to clear all analysis history?",
+    //   [
+    //     { text: "Cancel", style: "cancel" },
+    //     {
+    //       text: "Clear",
+    //       style: "destructive",
+    //       onPress: async () => {
+    //         await AsyncStorage.removeItem("analysis_history");
+    //         setHistory([]);
+    //       },
+    //     },
+    //   ]
+    // );
   };
 
   const formatDate = (timestamp: string) => {

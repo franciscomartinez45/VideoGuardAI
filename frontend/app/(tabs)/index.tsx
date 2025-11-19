@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { styles } from "./styles";
+import { styles } from "../styles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface AnalysisResult {
@@ -75,7 +75,7 @@ export default function Home() {
       return existingResult || null;
     } catch (error) {
       console.error("Error reading history:", error);
-      
+
       return null;
     }
   };

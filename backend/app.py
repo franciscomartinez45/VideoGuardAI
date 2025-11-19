@@ -28,12 +28,10 @@ in the following format:
 {
   "isAI": boolean,
   "confidence": number (0-100),
-  "details": {
-    "visualArtifacts": number (0-100),
-    "audioAnomalies": number (0-100),
-    "motionPatterns": number (0-100),
-    "faceAnalysis": number (0-100)
-  },
+  "visualArtifacts": number (0-100),
+  "audioAnomalies": number (0-100),
+  "motionPatterns": number (0-100),
+  "faceAnalysis": number (0-100)
   "explanation": "Your detailed, one-paragraph analysis. Explain *why*
   you made this decision. Be specific about what you see or hear."
 }
