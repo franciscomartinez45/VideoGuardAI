@@ -69,6 +69,7 @@ export default function TabLayout() {
           headerRight: () => <LogoutButton />,
           tabBarActiveTintColor: "#6366f1",
           headerTitleAlign: "center",
+          href: null,
         }}
       />
       <Tabs.Screen
@@ -76,6 +77,7 @@ export default function TabLayout() {
         options={{
           title: "Analysis",
           headerTitleAlign: "center",
+          href: null,
         }}
       />
     </Tabs>

@@ -27,6 +27,8 @@ export default function LogInLayout() {
         options={{
           headerTitleAlign: "center",
           title: "Sign Up",
+          // href: Platform.OS === "ios" ? null : "/signup",
+          href: null,
         }}
       />
 
@@ -35,6 +37,8 @@ export default function LogInLayout() {
         options={{
           headerTitleAlign: "center",
           title: "Log In",
+          // href: Platform.OS === "ios" ? null : "/login",
+          href: null,
         }}
       />
     </Tabs>
