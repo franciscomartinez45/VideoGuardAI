@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -23,6 +24,7 @@ import {
   getFirestore,
 } from "firebase/firestore";
 import { db } from "@/firebaseConfig";
+import { Ionicons } from "@expo/vector-icons";
 
 export interface AnalysisResult {
   id: string;
@@ -37,7 +39,7 @@ export interface AnalysisResult {
   explanation: string;
 }
 
-export default function Analyze() {
+export default function analyze() {
   const { url, cachedResult } = useLocalSearchParams<{
     url?: string;
     cachedResult?: string;
@@ -174,6 +176,36 @@ export default function Analyze() {
           }}
         />
         <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
+  if (!cachedResult && !url) {
+    return (
+      <View style={styles.container}>
+        <Stack.Screen
+          options={{
+            title: "Analysis",
+            headerBackVisible: true,
+            headerStyle: { backgroundColor: "#f9fafb" },
+            headerShadowVisible: false,
+          }}
+        />
+        <View style={styles.emptyContainer}>
+          <View style={styles.iconCircle}>
+            <Ionicons name="analytics-outline" size={48} color="#6366f1" />
+          </View>
+          <Text style={styles.emptyTitle}>No Analysis Found</Text>
+          <Text style={styles.emptySubtitle}>
+            Upload or paste a video URL to see AI detection results here.
+          </Text>
+
+          <TouchableOpacity
+            style={styles.startButton}
+            onPress={() => router.back()}
+          >
+            <Text style={styles.startButtonText}>Start New Analysis</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }

@@ -23,10 +23,10 @@ export default function LogInLayout() {
       }}
     >
       <Tabs.Screen
-        name="register"
+        name="signup"
         options={{
           headerTitleAlign: "center",
-          title: "Register",
+          title: "Sign Up",
         }}
       />
 

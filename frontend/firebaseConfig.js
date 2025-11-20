@@ -6,11 +6,14 @@ import {
   initializeAuth,
   browserSessionPersistence,
   getReactNativePersistence,
+  GoogleAuthProvider,
+  signInWithPopup,
+  onAuthStateChanged,
+  getAuth,
 } from "firebase/auth";
 
 import { getFirestore } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_API_KEY,
@@ -20,9 +23,8 @@ const firebaseConfig = {
   messagingSenderId: process.env.EXPO_PUBLIC_MESSAGING_SENDER_ID,
   appId: process.env.EXPO_PUBLIC_APP_ID,
   measurementId: process.env.EXPO_PUBLIC_MEASUREMENT_ID,
-  
 };
-const app = initializeApp(firebaseConfig);
+export const app = initializeApp(firebaseConfig);
 
 initializeAuth(app, {
   persistence:
@@ -33,3 +35,4 @@ initializeAuth(app, {
 
 //const analytics = getAnalytics(app);
 export const db = getFirestore(app);
+export const googleProvider = new GoogleAuthProvider();
