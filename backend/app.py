@@ -116,7 +116,7 @@ def analyze_video():
             result_json = json.loads(json_string)
 
         result_json["url"] = video_url
-        result_json["timestamp"] = time.time()
+        result_json["timestamp"] = int(time.time()*1000)
         
         print(f"Analysis complete: {result_json['isAI']} ({result_json['confidence']}%)")
         return jsonify(result_json)
@@ -133,5 +133,5 @@ def analyze_video():
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=True)
+    app.run(host='0.0.0.0', port=5002, debug=True)
 
