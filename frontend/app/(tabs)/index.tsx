@@ -137,8 +137,7 @@ export default function Home() {
     setAnalyzing(true);
     setAnalysisError("");
     setAnalysisResult(null);
-    const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
-
+   const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
     try {
       console.log("Sending to Backend");
       const response = await fetch(endpoint, {

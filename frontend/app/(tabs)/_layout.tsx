@@ -1,9 +1,7 @@
 import { Tabs, useRouter } from "expo-router";
 import React, { useEffect, useState } from "react";
 import { Alert, Platform, Text, TouchableOpacity } from "react-native";
-
 import { getAuth, signOut } from "firebase/auth";
-
 import { app } from "../../firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -53,7 +51,6 @@ export default function TabLayout() {
       screenOptions={{
         headerTitleStyle: { fontSize: 25, fontWeight: "200" },
         headerShown: true,
-
         tabBarStyle: Platform.select({
           ios: {
             position: "absolute",
