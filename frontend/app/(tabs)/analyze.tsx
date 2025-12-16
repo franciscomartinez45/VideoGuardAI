@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  SafeAreaView,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -23,7 +22,6 @@ import {
   getDoc,
   getFirestore,
 } from "firebase/firestore";
-import { db } from "@/firebaseConfig";
 import { Ionicons } from "@expo/vector-icons";
 
 export interface AnalysisResult {
@@ -96,6 +94,7 @@ export default function analyze() {
     const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
     setErrorMessage("");
     try {
+      console.log("Sending to Backend");
       const response = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -121,7 +120,8 @@ export default function analyze() {
 
       const finalResult: AnalysisResult = await response.json();
       setResult(finalResult);
-      await saveToDB(finalResult);
+
+      //await saveToDB(finalResult);
     } catch (error: any) {
       setErrorMessage(error.message);
       setResult(null);
@@ -233,63 +233,50 @@ export default function analyze() {
             Confidence: {result.confidence}%
           </Text>
         </View>
+        {result.isAI && (
+          <View style={styles.detailsCard}>
+            <Text style={styles.sectionTitle}>Analysis Details</Text>
 
-        <View style={styles.detailsCard}>
-          <Text style={styles.sectionTitle}>Analysis Details</Text>
-
-          <View style={styles.metricRow}>
-            <Text style={styles.metricLabel}>Visual Artifacts</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${result.visualArtifacts}%` },
-                ]}
-              />
+            <View style={styles.metricRow}>
+              <Text style={styles.metricLabel}>Visual Artifacts</Text>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${result.visualArtifacts}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.metricValue}>{result.visualArtifacts}%</Text>
             </View>
-            <Text style={styles.metricValue}>{result.visualArtifacts}%</Text>
-          </View>
 
-          <View style={styles.metricRow}>
-            <Text style={styles.metricLabel}>Audio Anomalies</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${result.audioAnomalies}%` },
-                ]}
-              />
+            <View style={styles.metricRow}>
+              <Text style={styles.metricLabel}>Motion Patterns</Text>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${result.motionPatterns}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.metricValue}>{result.motionPatterns}%</Text>
             </View>
-            <Text style={styles.metricValue}>{result.audioAnomalies}%</Text>
-          </View>
 
-          <View style={styles.metricRow}>
-            <Text style={styles.metricLabel}>Motion Patterns</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${result.motionPatterns}%` },
-                ]}
-              />
+            <View style={styles.metricRow}>
+              <Text style={styles.metricLabel}>Face Analysis</Text>
+              <View style={styles.progressBar}>
+                <View
+                  style={[
+                    styles.progressFill,
+                    { width: `${result.faceAnalysis}%` },
+                  ]}
+                />
+              </View>
+              <Text style={styles.metricValue}>{result.faceAnalysis}%</Text>
             </View>
-            <Text style={styles.metricValue}>{result.motionPatterns}%</Text>
           </View>
-
-          <View style={styles.metricRow}>
-            <Text style={styles.metricLabel}>Face Analysis</Text>
-            <View style={styles.progressBar}>
-              <View
-                style={[
-                  styles.progressFill,
-                  { width: `${result.faceAnalysis}%` },
-                ]}
-              />
-            </View>
-            <Text style={styles.metricValue}>{result.faceAnalysis}%</Text>
-          </View>
-        </View>
-
+        )}
         <View style={styles.explanationCard}>
           <Text style={styles.sectionTitle}>Explanation</Text>
           <Text style={styles.explanationText}>{result.explanation}</Text>
