@@ -4,12 +4,9 @@ import { initializeApp } from "firebase/app";
 import { Platform } from "react-native";
 import {
   initializeAuth,
-  browserSessionPersistence,
+  browserLocalPersistence,
   getReactNativePersistence,
   GoogleAuthProvider,
-  signInWithPopup,
-  onAuthStateChanged,
-  getAuth,
 } from "firebase/auth";
 
 import { getFirestore } from "firebase/firestore";
@@ -29,7 +26,7 @@ export const app = initializeApp(firebaseConfig);
 initializeAuth(app, {
   persistence:
     Platform.OS === "web"
-      ? browserSessionPersistence
+      ? browserLocalPersistence
       : getReactNativePersistence(AsyncStorage),
 });
 
