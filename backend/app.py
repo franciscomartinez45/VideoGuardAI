@@ -15,8 +15,18 @@ from ultralytics import YOLO # type: ignore
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
-classifier_model = YOLO('best.pt') 
+classifier_model = None  # Lazy load the model
 
+@app.route('/', methods=['GET'])
+@app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+def get_classifier_model():
+    global classifier_model
+    if classifier_model is None:
+        classifier_model = YOLO('best.pt')
+    return classifier_model
 
 
 
@@ -118,7 +128,8 @@ def analyze_video():
             downloaded_filename = ydl.prepare_filename(info)
         
         print(f"Video downloaded: {downloaded_filename}")
-        results = classifier_model(downloaded_filename, stream=True)
+        model = get_classifier_model()
+        results = model(downloaded_filename, stream=True)
         ai_score_sum = 0
         frame_count = 0
         max_ai_score = -1.0
@@ -168,5 +179,5 @@ def analyze_video():
             print(f"Removed file")
 
 if __name__ == "__main__":
-
-    app.run(host='0.0.0.0', port=5002, debug=True, use_reloader=False)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
