@@ -67,9 +67,9 @@ export default function TabLayout() {
         options={{
           title: "Home",
           headerRight: () => <LogoutButton />,
-          tabBarActiveTintColor: "#6366f1",
           headerTitleAlign: "center",
           href: null,
+          headerShown: false,
         }}
       />
       <Tabs.Screen

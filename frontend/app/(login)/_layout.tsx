@@ -26,7 +26,7 @@ export default function LogInLayout() {
         name="signup"
         options={{
           headerTitleAlign: "center",
-          title: "Sign Up",
+          title: "Video-Guard-AI",
           // href: Platform.OS === "ios" ? null : "/signup",
           href: null,
         }}
@@ -36,7 +36,7 @@ export default function LogInLayout() {
         name="login"
         options={{
           headerTitleAlign: "center",
-          title: "Log In",
+          title: "Video-Guard-AI",
           // href: Platform.OS === "ios" ? null : "/login",
           href: null,
         }}

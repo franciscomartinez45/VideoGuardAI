@@ -6,7 +6,6 @@ import {
   initializeAuth,
   browserLocalPersistence,
   getReactNativePersistence,
-  GoogleAuthProvider,
 } from "firebase/auth";
 
 import { getFirestore } from "firebase/firestore";
@@ -21,9 +20,10 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_APP_ID,
   measurementId: process.env.EXPO_PUBLIC_MEASUREMENT_ID,
 };
+
 export const app = initializeApp(firebaseConfig);
 
-initializeAuth(app, {
+export const auth = initializeAuth(app, {
   persistence:
     Platform.OS === "web"
       ? browserLocalPersistence
@@ -32,4 +32,3 @@ initializeAuth(app, {
 
 //const analytics = getAnalytics(app);
 export const db = getFirestore(app);
-export const googleProvider = new GoogleAuthProvider();

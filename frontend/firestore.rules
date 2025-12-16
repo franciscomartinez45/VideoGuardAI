@@ -1,12 +1,11 @@
 rules_version = '2';
 service cloud.firestore {
-  match /databases/{database}/documents {  
+  match /databases/{database}/documents {
     match /user/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-
         match /search/{searchId} {
-          // Ensure that the reminder belongs to the pet and the user
-          allow read, write: if request.auth != null && request.auth.uid == userId;
+          // Allow users to read, create, update, and delete their own analysis results
+          allow read, write, delete: if request.auth != null && request.auth.uid == userId;
         }
       }
     }

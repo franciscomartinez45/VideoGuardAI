@@ -1,7 +1,7 @@
-import * as Clipboard from "expo-clipboard";
 import { useRouter } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   ScrollView,
@@ -10,17 +10,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { styles } from "../styles";
+import { Ionicons } from "@expo/vector-icons";
+import { styles, colors } from "../styles";
 
 import {
+  addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDoc,
   getFirestore,
   onSnapshot,
   orderBy,
   query,
 } from "firebase/firestore";
-import { getAuth } from "firebase/auth";
+import { getAuth, signOut } from "firebase/auth";
 
 interface HistoryItem extends AnalysisResult {
   id: string;
@@ -40,6 +44,14 @@ interface AnalysisResult {
 export default function Home() {
   const [url, setUrl] = useState("");
   const [loading, setIsLoading] = useState(true);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
+  const [analysisResultId, setAnalysisResultId] = useState<string | null>(null);
+  const [analysisError, setAnalysisError] = useState("");
+  const [showDeleteToast, setShowDeleteToast] = useState(false);
+  const [recentlyAddedId, setRecentlyAddedId] = useState<string | null>(null);
   const router = useRouter();
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const db = getFirestore();
@@ -87,46 +99,122 @@ export default function Home() {
     }
   }, [currentUser]);
 
+  const saveToDB = async (analysisResult: AnalysisResult) => {
+    if (currentUser) {
+      try {
+        const userRef = doc(db, "user", currentUser.uid);
+        const searchRef = collection(userRef, "search");
+        const docRef = await addDoc(searchRef, analysisResult);
+        return docRef.id;
+      } catch (error) {
+        console.error("Error saving to history:", error);
+        return null;
+      }
+    }
+    return null;
+  };
+
+  const fetchSavedInfo = async (id: string) => {
+    if (currentUser?.uid) {
+      try {
+        const searchItemRef = doc(db, "user", currentUser?.uid, "search", id);
+        const docSnap = await getDoc(searchItemRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as AnalysisResult;
+          setAnalysisResult(data);
+          setAnalysisResultId(id);
+          console.log("Analysis extracted from DB...");
+        }
+      } catch (error) {
+        console.error("Error fetching search item:", error);
+        setAnalysisResult(null);
+        setAnalysisResultId(null);
+      }
+    }
+  };
+
+  const analyzeVideo = async (urlToAnalyze: string) => {
+    setAnalyzing(true);
+    setAnalysisError("");
+    setAnalysisResult(null);
+    const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
+
+    try {
+      console.log("Sending to Backend");
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: urlToAnalyze,
+        }),
+      });
+
+      if (!response.ok) {
+        let errorMsg = "An unknown server error occurred.";
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          errorMsg = `Server error: ${response.status}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const finalResult: AnalysisResult = await response.json();
+      setAnalysisResult(finalResult);
+      const docId = await saveToDB(finalResult);
+      setAnalysisResultId(docId);
+
+      if (docId) {
+        setRecentlyAddedId(docId);
+        setTimeout(() => setRecentlyAddedId(null), 5000);
+      }
+    } catch (error: any) {
+      setAnalysisError(error.message);
+      setAnalysisResult(null);
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
   const handleAnalyze = async () => {
     if (!currentUser) {
       router.push({
         pathname: "/(login)/login",
       });
+      return;
     }
     if (!url.trim()) {
       if (Platform.OS === "web") {
         alert("Please enter a URL");
+      } else {
+        Alert.alert("Error", "Please enter a URL");
       }
-      Alert.alert("Error", "Please enter a URL");
       return;
     }
 
     if (!isValidUrl(url)) {
       if (Platform.OS === "web") {
         alert("Please enter a valid TikTok or Instagram URL");
+      } else {
+        Alert.alert("Error", "Please enter a valid TikTok or Instagram URL");
       }
-      Alert.alert("Error", "Please enter a valid TikTok or Instagram URL");
       return;
     }
 
     const data = inHistory(url);
     if (data) {
       console.log("Found in history...");
-      router.push({
-        pathname: "/analyze",
-        params: { cachedResult: data },
-      });
+      await fetchSavedInfo(data);
     } else {
       console.log("Fetching...");
-      router.push({
-        pathname: "/analyze",
-        params: { url: url },
-      });
+      await analyzeVideo(url);
     }
-    setTimeout(() => {
-      setIsLoading(false);
-      setUrl("");
-    }, 1000);
+    setUrl("");
   };
   const isValidUrl = (urlString: string) => {
     const tiktokRegex = /tiktok\.com/i;
@@ -138,88 +226,191 @@ export default function Home() {
     return matchingItem?.id;
   };
 
-  const pasteFromClipboard = async () => {
-    const text = await Clipboard.getStringAsync();
-    if (text) {
-      setUrl(text);
-    }
-  };
   const formatDate = (timestamp: string) => {
     const date = new Date(timestamp);
     return date.toLocaleDateString() + " " + date.toLocaleTimeString();
   };
-  const clearHistory = () => {
-    Alert.alert(
-      "Clear History",
-      "Are you sure you want to clear all analysis history?"
-    );
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  const truncateUrl = (url: string) => {
-    return url.length > 40 ? url.substring(0, 40) + "..." : url;
+  const formatDateHeader = (timestamp: string) => {
+    const date = new Date(timestamp);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (date.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (date.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    } else {
+      return date.toLocaleDateString([], {
+        weekday: "long",
+        month: "long",
+        day: "numeric",
+      });
+    }
+  };
+
+  const groupHistoryByDate = () => {
+    const grouped: { [key: string]: HistoryItem[] } = {};
+
+    history.forEach((item) => {
+      const dateKey = new Date(item.timestamp).toDateString();
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(item);
+    });
+
+    return grouped;
+  };
+
+  const handleLogout = async () => {
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm("Are you sure you want to log out?");
+      if (!confirmed) return;
+    } else {
+      Alert.alert("Log Out", "Are you sure you want to log out?", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Log Out", style: "destructive", onPress: performLogout },
+      ]);
+      return;
+    }
+    await performLogout();
+  };
+
+  const performLogout = async () => {
+    try {
+      const auth = getAuth();
+      await signOut(auth);
+      router.replace("/(login)/login");
+    } catch (error: any) {
+      if (Platform.OS === "web") {
+        alert("Error logging out: " + error.message);
+      } else {
+        Alert.alert("Error", "Failed to log out: " + error.message);
+      }
+    }
+  };
+
+  const deleteHistoryItem = async (itemId: string) => {
+    if (!currentUser) return;
+
+    const performDelete = async () => {
+      setHistory((prevHistory) =>
+        prevHistory.filter((item) => item.id !== itemId)
+      );
+
+      try {
+        const searchItemRef = doc(
+          db,
+          "user",
+          currentUser.uid,
+          "search",
+          itemId
+        );
+        await deleteDoc(searchItemRef);
+        console.log("Analysis deleted successfully");
+
+        setShowDeleteToast(true);
+        setTimeout(() => setShowDeleteToast(false), 3000);
+      } catch (error) {
+        console.error("Error deleting analysis:", error);
+        if (Platform.OS === "web") {
+          alert("Failed to delete analysis");
+        } else {
+          Alert.alert("Error", "Failed to delete analysis");
+        }
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this analysis from your history?"
+      );
+      if (confirmed) {
+        await performDelete();
+      }
+    } else {
+      Alert.alert(
+        "Delete Analysis",
+        "Are you sure you want to delete this analysis from your history?",
+        [
+          {
+            text: "Cancel",
+            style: "cancel",
+          },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: performDelete,
+          },
+        ]
+      );
+    }
   };
 
   return (
     <ScrollView style={styles.container}>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Ionicons name="log-out-outline" size={24} color={colors.danger} />
+      </TouchableOpacity>
+
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>AI Video Analyzer</Text>
-          <Text style={styles.subtitle}>
-            Detect AI-generated content in TikTok and Instagram videos
-          </Text>
-        </View>
-        <View style={styles.infoSection}>
-          <Text style={styles.infoTitle}>How it works:</Text>
-          <Text style={styles.infoText}>
-            1. Copy a TikTok or Instagram video link{"\n"}
-            2. Paste it above or share it directly to this app{"\n"}
-            3. Our AI will analyze the video for synthetic content{"\n"}
-            4. Get detailed results on AI detection
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Video Guard AI</Text>
+          <Text style={styles.heroSubtitle}>
+            Detect AI-generated content in videos
           </Text>
         </View>
 
-        <View style={styles.supportedPlatforms}>
-          <Text style={styles.platformsTitle}>Supported Platforms:</Text>
-          <View style={styles.platformTags}>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>TikTok</Text>
+        <View style={styles.mainInputCard}>
+          <TextInput
+            style={styles.mainInput}
+            placeholder="Paste TikTok or Instagram video URL..."
+            placeholderTextColor={colors.textTertiary}
+            value={url}
+            onChangeText={setUrl}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="url"
+            multiline={false}
+          />
+          <View style={styles.platformTagsInline}>
+            <View style={styles.tagSmall}>
+              <Text style={styles.tagSmallText}>TikTok</Text>
             </View>
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>Instagram</Text>
+            <View style={styles.tagSmall}>
+              <Text style={styles.tagSmallText}>Instagram</Text>
             </View>
           </View>
         </View>
-        <View style={styles.inputSection}>
-          <Text style={styles.label}>Video URL</Text>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={styles.input}
-              placeholder="https://tiktok.com/..."
-              value={url}
-              onChangeText={setUrl}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            {/* <TouchableOpacity
-              style={styles.pasteButton}
-              onPress={pasteFromClipboard}
-            >
-              <Text style={styles.pasteButtonText}>Clear Cache</Text>
-            </TouchableOpacity> */}
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.analyzeButton} onPress={handleAnalyze}>
-          <Text style={styles.analyzeButtonText}>Analyze Video</Text>
-        </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.historyButton}
-          //  onPress={() => router.push("/history")}
+          style={[
+            styles.analyzeButton,
+            analyzing && styles.analyzeButtonDisabled,
+          ]}
+          onPress={handleAnalyze}
+          disabled={analyzing}
         >
-          <Text style={styles.historyButtonText}>View History</Text>
+          <Text style={styles.analyzeButtonText}>
+            {analyzing ? "Analyzing..." : "Analyze Video"}
+          </Text>
         </TouchableOpacity>
+        {analyzing && (
+          <View style={styles.analysisSection}>
+            <Text style={styles.analysisSectionTitle}>Current Analysis</Text>
+            <View style={styles.loadingCard}>
+              <ActivityIndicator size="large" color="#6366f1" />
+              <Text style={styles.loadingText}>Analyzing video...</Text>
+            </View>
+          </View>
+        )}
       </View>
       <View style={styles.container}>
         {history.length === 0 ? (
@@ -235,41 +426,77 @@ export default function Home() {
         ) : (
           <>
             <ScrollView style={styles.list}>
-              {history.map((item, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.historyItem}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/analyze",
-                      params: { cachedResult: item.id },
-                    })
-                  }
-                >
-                  <View style={styles.historyHeader}>
-                    <Text
+              {Object.entries(groupHistoryByDate()).map(([dateKey, items]) => (
+                <View key={dateKey}>
+                  <View style={styles.dateHeader}>
+                    <Text style={styles.dateHeaderText}>
+                      {formatDateHeader(items[0].timestamp)}
+                    </Text>
+                  </View>
+                  {items.map((item) => (
+                    <View
+                      key={item.id}
                       style={[
-                        styles.badge,
-                        item.isAI ? styles.aiBadge : styles.authenticBadge,
+                        styles.historyItem,
+                        item.id === recentlyAddedId && styles.historyItemNew,
                       ]}
                     >
-                      {item.isAI ? "AI" : "Authentic"}
-                    </Text>
-                    <Text style={styles.confidence}>{item.confidence}%</Text>
-                  </View>
-                  <Text style={styles.url}>{truncateUrl(item.url)}</Text>
-                  <Text style={styles.timestamp}>
-                    {formatDate(item.timestamp)}
-                  </Text>
-                </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.historyItemContent}
+                        onPress={() =>
+                          router.push({
+                            pathname: "/analyze",
+                            params: { cachedResult: item.id },
+                          })
+                        }
+                      >
+                        <View style={styles.historyHeader}>
+                          <Text style={styles.historyTime}>
+                            {formatTime(item.timestamp)}
+                          </Text>
+                          <View style={styles.historyBadgeContainer}>
+                            <Text
+                              style={[
+                                styles.badge,
+                                item.isAI
+                                  ? styles.aiBadge
+                                  : styles.authenticBadge,
+                              ]}
+                            >
+                              {item.isAI ? "AI" : "Authentic"}
+                            </Text>
+                            <Text style={styles.confidence}>
+                              {item.confidence}%
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={styles.urlSecondary} numberOfLines={1}>
+                          {item.url}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.deleteIconButton}
+                        onPress={() => deleteHistoryItem(item.id)}
+                      >
+                        <Ionicons
+                          name="trash-outline"
+                          size={20}
+                          color={colors.danger}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </View>
               ))}
             </ScrollView>
-            {/* <TouchableOpacity style={styles.clearButton} onPress={clearHistory}>
-              <Text style={styles.clearButtonText}>Clear History</Text>
-            </TouchableOpacity> */}
           </>
         )}
       </View>
+      {showDeleteToast && (
+        <View style={styles.toast}>
+          <Text style={styles.toastText}>Analysis deleted</Text>
+        </View>
+      )}
     </ScrollView>
   );
 }
