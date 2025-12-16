@@ -16,7 +16,7 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 classifier_model = YOLO('https://huggingface.co/francm2/image-classification-model/resolve/main/yolov8n-classification-model.pt') 
-detection_model = YOLO('https://huggingface.co/Ultralytics/YOLOv8/resolve/main/yolov8n.pt')
+
 
 
 
