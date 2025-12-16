@@ -1,7 +1,7 @@
 
 FROM python:3.11-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y \ wget
+RUN apt-get update && apt-get install wget
 RUN wget -O best.pt "https://huggingface.co/francm2/image-classification-model/resolve/main/yolov8n-classification-model.pt"
 RUN apt-get update && apt-get install -y \
     libgl1 \
