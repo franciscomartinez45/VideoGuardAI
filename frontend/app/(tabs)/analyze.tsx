@@ -120,8 +120,7 @@ export default function analyze() {
 
       const finalResult: AnalysisResult = await response.json();
       setResult(finalResult);
-
-      //await saveToDB(finalResult);
+      await saveToDB(finalResult);
     } catch (error: any) {
       setErrorMessage(error.message);
       setResult(null);
