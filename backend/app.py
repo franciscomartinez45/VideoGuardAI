@@ -153,6 +153,34 @@ def analyze_video():
             result["confidence"] = 100-round(avg_score*100,2)
             return jsonify(result), 200
         
+        if video_file.state.name == "FAILED":
+            return jsonify({"error": "Google failed to process the video file."}), 500
+
+        print(f"File uploaded successfully: {video_file.name}")
+
+     
+        print("Analyzing video with Gemini...")
+        response = model.generate_content([ANALYSIS_PROMPT, video_file])
+        genai.delete_file(video_file.name)
+        print("Removed file from Google's servers.")
+
+    
+        print(f"Raw JSON response: {response.text}")
+        
+        try:
+            result_json = json.loads(response.text)
+        except json.JSONDecodeError:
+            print("Response was not clean JSON, trying to extract...")
+            json_string = extract_json_from_text(response.text)
+            if not json_string:
+                return jsonify({"error": "Failed to parse AI response. Check backend logs."}), 500
+            result_json = json.loads(json_string)
+
+        result_json["url"] = video_url
+        result_json["timestamp"] = int(time.time()*1000)
+        
+        print(f"Analysis complete: {result_json['isAI']} ({result_json['confidence']}%)")
+        return jsonify(result_json)
 
     except Exception as e:
         print(f"An error occurred: {e}")
