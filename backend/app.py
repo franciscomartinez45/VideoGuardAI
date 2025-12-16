@@ -15,7 +15,7 @@ from ultralytics import YOLO # type: ignore
 load_dotenv()
 app = Flask(__name__)
 CORS(app)
-classifier_model = YOLO('https://huggingface.co/francm2/image-classification-model/resolve/main/yolov8n-classification-model.pt') 
+classifier_model = YOLO('best.pt') 
 
 
 
