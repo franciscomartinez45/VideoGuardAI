@@ -4,3 +4,16 @@ test.py
 .DS_Store
 best.pt
 yolov8n.pt
+yolo11*.pt
+detection_results/
+temp_video_*.mp4
+temp_video_*.webm
+filtered_video_*.mp4
+suspicious_frame_*.jpg
+models/model_weights/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.torch/
+.cache/
