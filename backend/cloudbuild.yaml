@@ -1,12 +1,14 @@
 steps:
-
+  # Build the container image with Kaniko (better caching than Docker)
   - name: 'gcr.io/kaniko-project/executor:latest'
     args:
+      - --dockerfile=Dockerfile
+      - --context=dir:///workspace/backend
       - --destination=gcr.io/$PROJECT_ID/videoguardai-backend:$COMMIT_SHA
       - --destination=gcr.io/$PROJECT_ID/videoguardai-backend:latest
       - --cache=true
-      - --cache-ttl=168h  # Cache for 1 week
-      - --compressed-caching=false  # Faster builds
+      - --cache-ttl=168h
+      - --compressed-caching=false
 
   # Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
