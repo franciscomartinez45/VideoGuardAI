@@ -26,11 +26,8 @@ steps:
       - --timeout=600
       - --max-instances=10
       - --min-instances=0
-      # Environment variables (add your secrets here)
       - --set-env-vars=LLM_PROVIDER=replicate
       - --set-env-vars=REPLICATE_MODEL=meta/meta-llama-3-8b-instruct
-      - --set-env-vars=ALLOWED_ORIGINS=https://video-guard-ai.vercel.app,http://localhost:8081,http://127.0.0.1:8081
-      # Note: Add REPLICATE_API_TOKEN via Cloud Run Console (Secrets)
 
 # Use faster machine for builds
 options:
