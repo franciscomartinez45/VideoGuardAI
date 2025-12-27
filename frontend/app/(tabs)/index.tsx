@@ -167,10 +167,9 @@ export default function Home() {
     setAnalysisError("");
     setAnalysisResult(null);
     const analyzeEndpoint = `${process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT}`;
-    const reportEndpoint = `${process.env.EXPO_PUBLIC_REPORT_ENDPOINT}`;
 
     try {
-      console.log("Sending to Backend - Step 1: Initial analysis");
+      console.log("Analyzing video (combined analysis + LLM)...");
       const response = await fetch(analyzeEndpoint, {
         method: "POST",
         headers: {
@@ -194,63 +193,33 @@ export default function Home() {
         throw new Error(errorMsg);
       }
 
-      const initialResult = await response.json();
-      const reportId = initialResult.report_id || initialResult.id;
+      const responseData = await response.json();
 
-      if (!reportId) {
-        throw new Error("No report ID received from backend");
-      }
+      console.log("Received complete analysis:", responseData);
 
-      console.log("Step 2: Fetching LLM analysis report with ID:", reportId);
-      const reportResponse = await fetch(reportEndpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          report_id: reportId,
-        }),
-      });
-
-      if (!reportResponse.ok) {
-        let errorMsg = "Failed to fetch analysis report.";
-        try {
-          const errorData = await reportResponse.json();
-          if (errorData.error) {
-            errorMsg = errorData.error;
-          }
-        } catch (e) {
-          errorMsg = `Report error: ${reportResponse.status}`;
-        }
-        throw new Error(errorMsg);
-      }
-
-      const reportData = await reportResponse.json();
-
-      console.log("Received report data:", reportData);
-
+      // Build the final result from the single API response
       const finalResult: AnalysisResult = {
         url: urlToAnalyze,
         timestamp:
-          reportData.metadata?.analysis_timestamp || new Date().toISOString(),
+          responseData.metadata?.analysis_timestamp || new Date().toISOString(),
         isAI:
-          reportData.llm_analysis?.authenticity_assessment?.verdict !==
+          responseData.llm_analysis?.authenticity_assessment?.verdict !==
           "authentic",
         confidence: Math.round(
-          (reportData.llm_analysis?.authenticity_assessment?.confidence_score ||
+          (responseData.llm_analysis?.authenticity_assessment?.confidence_score ||
             0) * 100
         ),
       };
 
       // Only add these fields if they exist to avoid undefined values
-      if (reportData.report_id || reportId) {
-        finalResult.report_id = reportData.report_id || reportId;
+      if (responseData.report_id) {
+        finalResult.report_id = responseData.report_id;
       }
-      if (reportData.llm_analysis) {
-        finalResult.llm_analysis = reportData.llm_analysis;
+      if (responseData.llm_analysis) {
+        finalResult.llm_analysis = responseData.llm_analysis;
       }
-      if (reportData.metadata) {
-        finalResult.metadata = reportData.metadata;
+      if (responseData.metadata) {
+        finalResult.metadata = responseData.metadata;
       }
 
       console.log("Final result to save:", finalResult);

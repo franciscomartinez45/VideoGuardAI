@@ -232,24 +232,40 @@ def analyze_video():
             "user_friendly_summary": user_friendly,
         }
 
-        report_path = os.path.join(results_folder, f"{unique_id}_anomaly_report.json")
-        try:
-            with open(report_path, 'w') as f:
-                json.dump(result_json, f, indent=2)
-            logger.info(f"Report saved to: {report_path}")
-        except Exception as e:
-            logger.error(f"Failed to save JSON report: {e}")
-            try:
-                with open(report_path, 'w') as f:
-                    json.dump(result_json, f)
-                logger.info("Saved report without indentation")
-            except Exception as e2:
-                logger.error(f"Failed to save JSON report even without indentation: {e2}")
-                raise
-
         logger.info(f"Anomaly analysis complete. Found {len(anomaly_results)} anomalous tracks")
 
-        return jsonify({"report_id": unique_id}), 200 
+        # Generate LLM analysis immediately (combined into one call)
+        try:
+            logger.info("Starting LLM analysis...")
+            llm_analysis, metadata = analyze_anomaly_report(result_json)
+            logger.info("LLM analysis completed successfully")
+
+            # Return complete analysis with LLM insights
+            return jsonify({
+                "report_id": unique_id,
+                "llm_analysis": llm_analysis,
+                "metadata": metadata
+            }), 200
+
+        except (OllamaConnectionError, ReplicateConnectionError) as e:
+            logger.error(f"LLM service error: {e}")
+            # Return basic analysis without LLM if service unavailable
+            return jsonify({
+                "report_id": unique_id,
+                "error": "LLM analysis unavailable",
+                "details": str(e),
+                "user_friendly_summary": user_friendly
+            }), 200
+
+        except Exception as e:
+            logger.error(f"LLM analysis failed: {e}")
+            # Return basic analysis without LLM if analysis fails
+            return jsonify({
+                "report_id": unique_id,
+                "error": "LLM analysis failed",
+                "details": str(e),
+                "user_friendly_summary": user_friendly
+            }), 200 
 
 
 
