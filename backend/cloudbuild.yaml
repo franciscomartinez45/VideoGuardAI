@@ -1,0 +1,38 @@
+steps:
+  # Build the container image with Kaniko (better caching than Docker)
+  - name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --destination=gcr.io/$PROJECT_ID/videoguardai-backend:$COMMIT_SHA
+      - --destination=gcr.io/$PROJECT_ID/videoguardai-backend:latest
+      - --cache=true
+      - --cache-ttl=168h  # Cache for 1 week
+      - --compressed-caching=false  # Faster builds
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    args:
+      - gcloud
+      - run
+      - deploy
+      - videoguardai-backend
+      - --image=gcr.io/$PROJECT_ID/videoguardai-backend:$COMMIT_SHA
+      - --region=us-west2
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=4Gi
+      - --cpu=2
+      - --timeout=600
+      - --max-instances=10
+      - --min-instances=0
+      # Environment variables (add your secrets here)
+      - --set-env-vars=LLM_PROVIDER=replicate
+      - --set-env-vars=REPLICATE_MODEL=meta/meta-llama-3-8b-instruct
+      # Note: Add REPLICATE_API_TOKEN via Cloud Run Console (Secrets)
+
+# Use faster machine for builds
+options:
+  machineType: 'E2_HIGHCPU_8'  # 8 CPU cores = faster builds
+  logging: CLOUD_LOGGING_ONLY
+
+# Increase timeout for initial builds
+timeout: 1800s  # 30 minutes (first build), subsequent builds ~2-5 min
