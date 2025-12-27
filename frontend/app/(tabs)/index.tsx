@@ -29,16 +29,40 @@ import { getAuth, signOut } from "firebase/auth";
 interface HistoryItem extends AnalysisResult {
   id: string;
 }
+
+interface RiskFactor {
+  factor: string;
+  impact: string;
+  severity: string;
+}
+
+interface AuthenticityAssessment {
+  confidence_score: number;
+  reasoning: string;
+  verdict: string;
+}
+
+interface LLMAnalysis {
+  authenticity_assessment: AuthenticityAssessment;
+  detailed_insights: string[];
+  risk_factors: RiskFactor[];
+  summary: string;
+}
+
+interface AnalysisMetadata {
+  analysis_timestamp: string;
+  model_used: string;
+  processing_time_ms: number;
+}
+
 interface AnalysisResult {
   url: string;
-  isAI: boolean;
-  confidence: number;
-  timestamp: string;
-  visualArtifacts: number;
-  audioAnomalies: number;
-  motionPatterns: number;
-  faceAnalysis: number;
-  explanation: string;
+  llm_analysis?: LLMAnalysis;
+  metadata?: AnalysisMetadata;
+  report_id?: string;
+  timestamp?: string;
+  isAI?: boolean;
+  confidence?: number;
 }
 
 export default function Home() {
@@ -102,12 +126,17 @@ export default function Home() {
   const saveToDB = async (analysisResult: AnalysisResult) => {
     if (currentUser) {
       try {
+        // Remove undefined values as Firestore doesn't handle them well
+        const cleanedResult = JSON.parse(JSON.stringify(analysisResult));
+
         const userRef = doc(db, "user", currentUser.uid);
         const searchRef = collection(userRef, "search");
-        const docRef = await addDoc(searchRef, analysisResult);
+        const docRef = await addDoc(searchRef, cleanedResult);
+        console.log("Successfully saved to DB with ID:", docRef.id);
         return docRef.id;
       } catch (error) {
         console.error("Error saving to history:", error);
+        console.error("Failed to save data:", analysisResult);
         return null;
       }
     }
@@ -137,10 +166,12 @@ export default function Home() {
     setAnalyzing(true);
     setAnalysisError("");
     setAnalysisResult(null);
-   const endpoint = `${process.env.EXPO_PUBLIC_SERVER}`;
+    const analyzeEndpoint = `${process.env.EXPO_PUBLIC_ANALYZE_ENDPOINT}`;
+    const reportEndpoint = `${process.env.EXPO_PUBLIC_REPORT_ENDPOINT}`;
+
     try {
-      console.log("Sending to Backend");
-      const response = await fetch(endpoint, {
+      console.log("Sending to Backend - Step 1: Initial analysis");
+      const response = await fetch(analyzeEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -163,7 +194,67 @@ export default function Home() {
         throw new Error(errorMsg);
       }
 
-      const finalResult: AnalysisResult = await response.json();
+      const initialResult = await response.json();
+      const reportId = initialResult.report_id || initialResult.id;
+
+      if (!reportId) {
+        throw new Error("No report ID received from backend");
+      }
+
+      console.log("Step 2: Fetching LLM analysis report with ID:", reportId);
+      const reportResponse = await fetch(reportEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          report_id: reportId,
+        }),
+      });
+
+      if (!reportResponse.ok) {
+        let errorMsg = "Failed to fetch analysis report.";
+        try {
+          const errorData = await reportResponse.json();
+          if (errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch (e) {
+          errorMsg = `Report error: ${reportResponse.status}`;
+        }
+        throw new Error(errorMsg);
+      }
+
+      const reportData = await reportResponse.json();
+
+      console.log("Received report data:", reportData);
+
+      const finalResult: AnalysisResult = {
+        url: urlToAnalyze,
+        timestamp:
+          reportData.metadata?.analysis_timestamp || new Date().toISOString(),
+        isAI:
+          reportData.llm_analysis?.authenticity_assessment?.verdict !==
+          "authentic",
+        confidence: Math.round(
+          (reportData.llm_analysis?.authenticity_assessment?.confidence_score ||
+            0) * 100
+        ),
+      };
+
+      // Only add these fields if they exist to avoid undefined values
+      if (reportData.report_id || reportId) {
+        finalResult.report_id = reportData.report_id || reportId;
+      }
+      if (reportData.llm_analysis) {
+        finalResult.llm_analysis = reportData.llm_analysis;
+      }
+      if (reportData.metadata) {
+        finalResult.metadata = reportData.metadata;
+      }
+
+      console.log("Final result to save:", finalResult);
+
       setAnalysisResult(finalResult);
       const docId = await saveToDB(finalResult);
       setAnalysisResultId(docId);

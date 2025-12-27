@@ -267,6 +267,11 @@ export const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.authentic,
   },
+  suspicious: {
+    backgroundColor: "#fef3c7",
+    borderWidth: 2,
+    borderColor: "#f59e0b",
+  },
   resultTitle: {
     fontSize: 24,
     fontWeight: "bold",

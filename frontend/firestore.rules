@@ -3,10 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /user/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
-        match /search/{searchId} {
-          // Allow users to read, create, update, and delete their own analysis results
-          allow read, write, delete: if request.auth != null && request.auth.uid == userId;
-        }
+
+      match /search/{searchId} {
+        // Allow users to read, create, update, and delete their own analysis results
+        allow read, write: if request.auth != null && request.auth.uid == userId;
       }
     }
   }
+}
