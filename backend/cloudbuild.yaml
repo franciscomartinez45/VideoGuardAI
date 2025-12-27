@@ -1,5 +1,5 @@
 steps:
-  # Build the container image with Kaniko (better caching than Docker)
+
   - name: 'gcr.io/kaniko-project/executor:latest'
     args:
       - --destination=gcr.io/$PROJECT_ID/videoguardai-backend:$COMMIT_SHA
